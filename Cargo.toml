@@ -1,0 +1,20 @@
+[package]
+name = "webtui"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Navegador para el terminal: Firefox como motor y celdas de color como pantalla"
+repository = "https://github.com/AdriLabTech/webTUI"
+
+[dependencies]
+base64 = "0.23.1"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+ratatui = "0.30.2"
+serde_json = "1.0.154"
+signal-hook = "0.4.5"
+unicode-width = "0.2"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
