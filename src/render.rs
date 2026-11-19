@@ -29,8 +29,16 @@ impl Grid {
 
 /// Two colours closer than this (sum of channel differences) are drawn as one flat colour.
 const FLAT: i32 = 48;
-/// Highlight colour of the selected target.
-const ACCENT: Rgb = Rgb(0xd9, 0xa4, 0x41);
+/// Takumi inversion colours (ink on black / black on ink) for the selected target.
+fn inverse_pair() -> (Rgb, Rgb) {
+    use crate::takumi::oscuro::{INVERSO_FONDO, INVERSO_TINTA};
+    use ratatui::style::Color;
+    let rgb = |c: Color| match c {
+        Color::Rgb(r, g, b) => Rgb(r, g, b),
+        _ => Rgb(0, 0, 0),
+    };
+    (rgb(INVERSO_FONDO), rgb(INVERSO_TINTA))
+}
 
 fn dist(a: Rgb, b: Rgb) -> i32 {
     (a.0 as i32 - b.0 as i32).abs()
@@ -183,6 +191,22 @@ pub fn render(snap: &Snapshot, cols: u16, rows: u16, focus: Option<usize>) -> Gr
         free[r] = col;
         ended[r] = w.x + w.w;
     }
+    // The selected target is a pure inversion: its text takes the opposite colour of the block.
+    if let Some(t) = focus.and_then(|i| snap.targets.get(i)) {
+        let (ink, paper) = inverse_pair();
+        let c0 = (t.x / cw).floor().max(0.0) as u16;
+        let c1 = (((t.x + t.w) / cw).ceil() as u16).min(cols);
+        let r0 = (t.y / ch).floor().max(0.0) as u16;
+        let r1 = (((t.y + t.h) / ch).ceil() as u16).min(rows);
+        for r in r0..r1 {
+            for c in c0..c1 {
+                let cell = &mut cells[r as usize * cols as usize + c as usize];
+                if cell.ch != ' ' {
+                    cell.fg = if cell.bg == ink { paper } else { ink };
+                }
+            }
+        }
+    }
     Grid { cols, rows, cells }
 }
 
@@ -193,7 +217,7 @@ impl Cell {
     }
 }
 
-/// Paint the selected target: its background mixed towards the accent colour.
+/// Paint the selected target by inversion: a light page area becomes black, a dark one ink.
 fn tint(cells: &mut [Cell], back: &[Rgb], cols: u16, rows: u16, t: &Target, cw: f32, ch: f32) {
     let c0 = (t.x / cw).floor().max(0.0) as u16;
     let c1 = (((t.x + t.w) / cw).ceil() as u16).min(cols);
@@ -202,7 +226,8 @@ fn tint(cells: &mut [Cell], back: &[Rgb], cols: u16, rows: u16, t: &Target, cw: 
     for r in r0..r1 {
         for c in c0..c1 {
             let i = r as usize * cols as usize + c as usize;
-            let bg = mix(back[i], ACCENT, 0.55);
+            let (ink, paper) = inverse_pair();
+            let bg = if lum(back[i]) >= 128.0 { paper } else { ink };
             cells[i] = Cell {
                 ch: ' ',
                 fg: bg,
@@ -360,7 +385,7 @@ mod tests {
     #[test]
     fn the_focused_target_is_tinted_but_its_text_stays() {
         let img = RgbImage::from_pixel(80, 32, image::Rgb([255, 255, 255]));
-        let mut s = snap(img, vec![word("ir", 8.0, 0.0, Rgb(0, 0, 200))]);
+        let mut s = snap(img, vec![word("ir", 8.0, 0.0, Rgb(120, 120, 120))]);
         s.targets.push(Target {
             kind: Kind::Link,
             x: 8.0,
@@ -372,7 +397,16 @@ mod tests {
         });
         let g = render(&s, 10, 2, Some(0));
         assert_eq!(text_row(&g, 0).trim(), "ir");
-        assert_ne!(g.get(1, 0).unwrap().bg, Rgb(255, 255, 255));
+        assert_eq!(
+            g.get(1, 0).unwrap().bg,
+            Rgb(0, 0, 0),
+            "a light area is inverted to black"
+        );
+        assert_eq!(
+            g.get(1, 0).unwrap().fg,
+            Rgb(242, 242, 242),
+            "its text is forced to the opposite colour, even if the page colour was legible"
+        );
         assert_eq!(
             g.get(5, 0).unwrap().bg,
             Rgb(255, 255, 255),
@@ -380,6 +414,24 @@ mod tests {
         );
         let g = render(&s, 10, 2, None);
         assert_eq!(g.get(1, 0).unwrap().bg, Rgb(255, 255, 255));
+    }
+
+    #[test]
+    fn a_focused_target_on_a_dark_page_is_inverted_to_ink() {
+        let img = RgbImage::from_pixel(80, 32, image::Rgb([5, 5, 5]));
+        let mut s = snap(img, vec![word("ir", 8.0, 0.0, Rgb(240, 240, 240))]);
+        s.targets.push(Target {
+            kind: Kind::Link,
+            x: 8.0,
+            y: 0.0,
+            w: 16.0,
+            h: 16.0,
+            label: "ir".into(),
+            href: None,
+        });
+        let g = render(&s, 10, 2, Some(0));
+        assert_eq!(g.get(1, 0).unwrap().bg, Rgb(242, 242, 242));
+        assert_eq!(g.get(1, 0).unwrap().fg, Rgb(0, 0, 0));
     }
 
     #[test]

@@ -7,4 +7,5 @@ pub mod firefox;
 pub mod marionette;
 pub mod page;
 pub mod render;
+pub mod takumi;
 pub mod url;

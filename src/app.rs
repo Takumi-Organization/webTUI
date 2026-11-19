@@ -7,19 +7,33 @@ use ratatui::crossterm::event::{
 };
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 
 use crate::browser::{Cmd, Event, Key};
 use crate::page::{Kind, Rgb, Snapshot};
 use crate::render::{Grid, render};
 use crate::url::normalize;
 
-const PAPER: Color = Color::Rgb(0x00, 0x00, 0x00);
-const INK: Color = Color::Rgb(0xcd, 0xc4, 0xba);
-const MUTED: Color = Color::Rgb(0x95, 0x8f, 0x87);
-const RAISED: Color = Color::Rgb(0x1b, 0x1b, 0x1b);
-const VERMILION: Color = Color::Rgb(0xe2, 0x34, 0x2a);
-const GOLD: Color = Color::Rgb(0xd9, 0xa4, 0x41);
+// Takumi style: the application chrome is strict monochrome (no accent or alert colours);
+// selection and status are shown by inversion, bold and text/icons. Page content keeps its
+// own colours.
+use crate::takumi::oscuro as tk;
+
+fn tinta() -> Style {
+    Style::new().fg(tk::TINTA).bg(tk::FONDO)
+}
+
+fn apagado() -> Style {
+    Style::new().fg(tk::TINTA_APAGADA).bg(tk::FONDO)
+}
+
+fn negrita() -> Style {
+    tinta().add_modifier(Modifier::BOLD)
+}
+
+fn inverso() -> Style {
+    Style::new().fg(tk::INVERSO_TINTA).bg(tk::INVERSO_FONDO)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -323,7 +337,7 @@ impl App {
 
     pub fn draw(&mut self, f: &mut Frame) {
         let area = f.area();
-        f.render_widget(Block::new().style(Style::new().bg(PAPER)), area);
+        f.render_widget(Block::new().style(Style::new().bg(tk::FONDO)), area);
         if area.height < 4 || area.width < 20 {
             f.render_widget(Paragraph::new("Terminal demasiado pequeño"), area);
             return;
@@ -356,25 +370,16 @@ impl App {
             )
         });
         let w = r.width as usize;
-        let brand = " webTUI ";
+        let brand = " WEBTUI ";
         let room = w.saturating_sub(brand.chars().count() + pct.chars().count() + 2);
         let shown: String = title.chars().take(room).collect();
         let pad = room.saturating_sub(shown.chars().count());
         let line = ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(
-                brand,
-                Style::new()
-                    .fg(PAPER)
-                    .bg(VERMILION)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            ratatui::text::Span::styled(
-                format!(" {shown}{} ", " ".repeat(pad)),
-                Style::new().fg(INK).bg(RAISED),
-            ),
-            ratatui::text::Span::styled(pct, Style::new().fg(MUTED).bg(RAISED)),
+            ratatui::text::Span::styled(brand, inverso().add_modifier(Modifier::BOLD)),
+            ratatui::text::Span::styled(format!(" {shown}{} ", " ".repeat(pad)), inverso()),
+            ratatui::text::Span::styled(pct, inverso()),
         ]);
-        f.render_widget(Paragraph::new(line).style(Style::new().bg(RAISED)), r);
+        f.render_widget(Paragraph::new(line).style(inverso()), r);
     }
 
     fn draw_page(&mut self, f: &mut Frame, r: Rect) {
@@ -387,7 +392,7 @@ impl App {
             let y = r.y + r.height / 2;
             let x = r.x + r.width.saturating_sub(msg.chars().count() as u16) / 2;
             f.render_widget(
-                Paragraph::new(msg).style(Style::new().fg(MUTED).bg(PAPER)),
+                Paragraph::new(msg).style(apagado()),
                 Rect::new(x, y, r.width.saturating_sub(x), 1),
             );
             return;
@@ -411,18 +416,24 @@ impl App {
 
     fn draw_footer(&self, f: &mut Frame, r: Rect) {
         let (text, style) = match &self.mode {
-            Mode::Url(input) => (format!("Ir a: {input}"), Style::new().fg(GOLD).bg(PAPER)),
-            Mode::Input => ("ESCRIBIENDO en la página · Esc para volver".to_string(), Style::new().fg(PAPER).bg(GOLD)),
-            _ if self.failed => (self.status.clone(), Style::new().fg(VERMILION).bg(PAPER)),
-            _ if !self.status.is_empty() => (self.status.clone(), Style::new().fg(GOLD).bg(PAPER)),
+            Mode::Url(input) => (format!("Ir a: {input}"), negrita()),
+            Mode::Input => (
+                "ESCRIBIENDO en la página · Esc para volver".to_string(),
+                inverso().add_modifier(Modifier::BOLD),
+            ),
+            _ if self.failed => (
+                format!("✕ {}", self.status),
+                inverso().add_modifier(Modifier::BOLD),
+            ),
+            _ if !self.status.is_empty() => (self.status.clone(), negrita()),
             _ => match self.focus.and_then(|i| self.snap.as_ref()?.targets.get(i)) {
                 Some(t) => {
                     let what = t.href.clone().unwrap_or_else(|| t.label.clone());
-                    (format!("{}  →  {}", t.label, what), Style::new().fg(GOLD).bg(PAPER))
+                    (format!("{}  →  {}", t.label, what), negrita())
                 }
                 None => (
                     "j/k desplazar · Tab enlaces · Enter abrir · Ctrl+L dirección · H atrás · ? ayuda · q salir".to_string(),
-                    Style::new().fg(MUTED).bg(PAPER),
+                    apagado(),
                 ),
             },
         };
@@ -448,16 +459,18 @@ fn draw_help(f: &mut Frame, area: Rect) {
         .iter()
         .map(|(k, d)| {
             ratatui::text::Line::from(vec![
-                ratatui::text::Span::styled(format!(" {k:<18}"), Style::new().fg(GOLD).bg(PAPER)),
-                ratatui::text::Span::styled(*d, Style::new().fg(INK).bg(PAPER)),
+                ratatui::text::Span::styled(format!(" {k:<18}"), negrita()),
+                ratatui::text::Span::styled(*d, Style::new().fg(tk::TINTA_SUAVE).bg(tk::FONDO)),
             ])
         })
         .collect();
     let block = Block::new()
         .borders(Borders::ALL)
-        .border_style(Style::new().fg(MUTED))
-        .title(" AYUDA // webTUI ")
-        .style(Style::new().bg(PAPER));
+        .border_type(BorderType::Plain)
+        .border_style(Style::new().fg(tk::LINEA_ALTA))
+        .title(" AYUDA // WEBTUI ")
+        .title_style(negrita())
+        .style(tinta());
     f.render_widget(Paragraph::new(lines).block(block), r);
 }
 
@@ -650,7 +663,7 @@ mod tests {
                 .collect::<String>()
         };
         assert!(
-            row(0).contains("webTUI") && row(0).contains("Aaa"),
+            row(0).contains("WEBTUI") && row(0).contains("Aaa"),
             "{:?}",
             row(0)
         );
@@ -671,6 +684,29 @@ mod tests {
             .collect();
         assert!(all.contains("AYUDA"));
         let _ = (KeyEventKind::Press, KeyEventState::NONE);
+    }
+
+    #[test]
+    fn the_chrome_is_strictly_grey() {
+        let mut a = app();
+        a.status = "algo".into();
+        a.failed = true;
+        let mut t = Terminal::new(TestBackend::new(40, 6)).unwrap();
+        for _ in 0..2 {
+            t.draw(|f| a.draw(f)).unwrap();
+            let b = t.backend().buffer();
+            for y in [0u16, 5] {
+                for x in 0..40 {
+                    for c in [b[(x, y)].fg, b[(x, y)].bg] {
+                        assert!(
+                            matches!(c, Color::Rgb(r, g, bl) if r == g && g == bl),
+                            "{c:?}"
+                        );
+                    }
+                }
+            }
+            press(&mut a, KeyCode::Char('?'));
+        }
     }
 
     #[test]

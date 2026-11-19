@@ -13,7 +13,7 @@ TUI-OS, el sistema operativo de texto de la organización (donde sustituirá a B
 
 ![Ayuda con todas las teclas](docs/03-ayuda.png)
 
-*Capturas reales de la aplicación (140 columnas, kitty/tmux, Zen como motor). Izquierda: [la web de la organización](https://takumi-organization.github.io/), con su objeto 3D convertido a celdas. Derecha: el artículo [GNU/Linux de Wikipedia](https://es.wikipedia.org/wiki/GNU/Linux) (texto bajo CC BY-SA 4.0). Se aprecia el límite descrito abajo: el texto es nítido, las imágenes salen pixeladas.*
+*Capturas reales de la aplicación (140 columnas, tmux, Zen como motor, estilo Takumi; en la primera hay un enlace seleccionado con Tab y en la segunda también). Izquierda: [la web de la organización](https://takumi-organization.github.io/), con su objeto 3D convertido a celdas. Derecha: el artículo [GNU/Linux de Wikipedia](https://es.wikipedia.org/wiki/GNU/Linux) (texto bajo CC BY-SA 4.0). Se aprecia el límite descrito abajo: el texto es nítido, las imágenes salen pixeladas.*
 
 ```sh
 cargo run --release -- https://es.wikipedia.org/wiki/Linux
@@ -87,12 +87,16 @@ se prueban sin Firefox (la parte de Marionette contra un servidor falso).
 | `app.rs` | teclas, ratón y dibujo con Ratatui |
 | `url.rs` | de lo que se escribe a una URL o una búsqueda |
 
+## Diseño
+
+El cromo de la aplicación (barra superior, barra de estado, ayuda) sigue el estilo [Takumi](https://github.com/Takumi-Organization/takumi-design): monocromo estricto, sin color de acento ni de alerta. Lo seleccionado se muestra por inversión (el enlace elegido con Tab se pinta en negro sobre página clara o en tinta sobre página oscura, con el texto en el color opuesto), los fallos con `✕` y texto en negrita invertida. El contenido de la página conserva sus colores reales. Los colores del cromo están en `src/takumi.rs` (copia de `dist/takumi.rs` de takumi-design).
+
 ## Estado
 
-Versión 0.1. En esta revisión se comprobó: `cargo fmt --check`, `cargo clippy -D warnings`, 36 pruebas unitarias y la prueba extremo a extremo
+Versión 0.1. En esta revisión se comprobó: `cargo fmt --check`, `cargo clippy -D warnings`, 38 pruebas unitarias (incluidas una que exige que el cromo sea solo gris y dos de la inversión del enlace seleccionado) y la prueba extremo a extremo
 (`tests/e2e.rs`: renderiza, desplaza, hace clic, escribe y sigue páginas dinámicas) con **Zen** como motor, en Linux.
 La prueba e2e se omite sola si no hay navegador disponible; para ejecutarla con otro: `WEBTUI_FIREFOX=/ruta/al/navegador cargo test --test e2e`.
-No se ha probado con Firefox propiamente dicho en esta revisión ni en la consola de Linux (TTY).
+No se ha probado con Firefox propiamente dicho en esta revisión, ni en la consola de Linux (TTY), ni en terminales distintos de tmux. Las capturas se renderizan desde la salida ANSI de tmux con un script propio.
 
 ## Licencia
 
