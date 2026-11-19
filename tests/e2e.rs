@@ -35,7 +35,8 @@ let i = 0; setInterval(() => { document.getElementById('n').textContent = 'cuent
 </script></body>"#;
 
 fn firefox_available() -> bool {
-    Command::new("firefox")
+    let bin = std::env::var("WEBTUI_FIREFOX").unwrap_or_else(|_| "firefox".into());
+    Command::new(bin)
         .arg("--version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())

@@ -4,8 +4,16 @@ Navegador para el terminal. **Firefox (sin cabeza) es el motor**, así que funci
 cualquier página, también las dinámicas (JavaScript, SPAs, temporizadores); la pantalla es una
 rejilla de celdas de color: los **colores y las imágenes** salen de una captura de la página y el
 **texto** se dibuja como texto, en su sitio y con su color. Pensado para
-[TUI-OS](../tui-os) (donde sustituirá a Browsh) pero funciona en cualquier terminal con truecolor
+TUI-OS, el sistema operativo de texto de la organización (donde sustituirá a Browsh) pero funciona en cualquier terminal con truecolor
 (kitty, WezTerm, foot, Alacritty…).
+
+| | |
+|---|---|
+| ![Una web dinámica con un objeto 3D](docs/01-pagina-dinamica.png) | ![Un artículo de Wikipedia](docs/02-wikipedia.png) |
+
+![Ayuda con todas las teclas](docs/03-ayuda.png)
+
+*Capturas reales de la aplicación (140 columnas, kitty/tmux, Zen como motor). Izquierda: [la web de la organización](https://takumi-organization.github.io/), con su objeto 3D convertido a celdas. Derecha: el artículo [GNU/Linux de Wikipedia](https://es.wikipedia.org/wiki/GNU/Linux) (texto bajo CC BY-SA 4.0). Se aprecia el límite descrito abajo: el texto es nítido, las imágenes salen pixeladas.*
 
 ```sh
 cargo run --release -- https://es.wikipedia.org/wiki/Linux
@@ -13,7 +21,7 @@ cargo run --release -- archivo.html      # un archivo local
 cargo run --release                      # pide una dirección
 ```
 
-Necesita `firefox` en el `PATH` (o `WEBTUI_FIREFOX=/ruta/a/firefox`). Cada ejecución usa un
+Necesita `firefox` en el `PATH` (o `WEBTUI_FIREFOX=/ruta/al/navegador`; vale cualquier navegador basado en Gecko con Marionette, por ejemplo Zen). Cada ejecución usa un
 perfil temporal y privado que se borra al salir (cookies y sesiones no se conservan).
 
 ## Teclas
@@ -78,3 +86,14 @@ se prueban sin Firefox (la parte de Marionette contra un servidor falso).
 | `render.rs` | de la captura y las palabras a celdas |
 | `app.rs` | teclas, ratón y dibujo con Ratatui |
 | `url.rs` | de lo que se escribe a una URL o una búsqueda |
+
+## Estado
+
+Versión 0.1. En esta revisión se comprobó: `cargo fmt --check`, `cargo clippy -D warnings`, 36 pruebas unitarias y la prueba extremo a extremo
+(`tests/e2e.rs`: renderiza, desplaza, hace clic, escribe y sigue páginas dinámicas) con **Zen** como motor, en Linux.
+La prueba e2e se omite sola si no hay navegador disponible; para ejecutarla con otro: `WEBTUI_FIREFOX=/ruta/al/navegador cargo test --test e2e`.
+No se ha probado con Firefox propiamente dicho en esta revisión ni en la consola de Linux (TTY).
+
+## Licencia
+
+[MIT](LICENSE).
